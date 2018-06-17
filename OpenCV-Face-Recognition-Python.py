@@ -130,6 +130,27 @@ def detect_face(img):
     return gray[y:y+w, x:x+h], faces[0]
 
 
+def detect_faces(img):
+    # convert the test image to gray image as opencv face detector expects gray images
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # load OpenCV face detector, I am using LBP which is fast
+    # there is also a more accurate but slow Haar classifier
+    face_cascade = cv2.CascadeClassifier(
+        'opencv-files/lbpcascade_animeface.xml')
+
+    # let's detect multiscale (some images may be closer to camera than others) images
+    # result is a list of faces
+    faces = face_cascade.detectMultiScale(
+        gray, scaleFactor=1.1, minNeighbors=5, minSize=(24, 24))
+
+    if (len(faces) == 0):
+        return None, None
+    else:
+        print(faces)
+        return [(gray[y:y+w, x:x+h], [x, y, w, h]) for (x, y, w, h) in faces]
+
+
 # I am using OpenCV's **LBP face detector**. On _line 4_, I convert the image to grayscale because most operations in OpenCV are performed in gray scale, then on _line 8_ I load LBP face detector using `cv2.CascadeClassifier` class. After that on _line 12_ I use `cv2.CascadeClassifier` class' `detectMultiScale` method to detect all the faces in the image. on _line 20_, from detected faces I only pick the first face because in one image there will be only one face (under the assumption that there will be only one prominent face). As faces returned by `detectMultiScale` method are actually rectangles (x, y, width, height) and not actual faces images so we have to extract face image area from the main image. So on _line 23_ I extract face area from gray image and return both the face image area and face rectangle.
 #
 # Now you have got a face detector and you know the 4 steps to prepare the data, so are you ready to code the prepare data step? Yes? So let's do it.
@@ -309,17 +330,18 @@ def predict(test_img):
     # make a copy of the image as we don't want to chang original image
     img = test_img.copy()
     # detect face from the image
-    face, rect = detect_face(img)
+    face_rect_list = detect_faces(img)
 
     # predict the image using our face recognizer
-    label, confidence = face_recognizer.predict(face)
-    # get name of respective label returned by face recognizer
-    label_text = subjects[label]
+    for face, rect in face_rect_list:
+        label, _ = face_recognizer.predict(face)
+        # get name of respective label returned by face recognizer
+        label_text = subjects[label]
 
-    # draw a rectangle around face detected
-    draw_rectangle(img, rect)
-    # draw name of predicted person
-    draw_text(img, label_text, rect[0], rect[1]-5)
+        # draw a rectangle around face detected
+        draw_rectangle(img, rect)
+        # draw name of predicted person
+        draw_text(img, label_text, rect[0], rect[1]-5)
 
     return img
 
@@ -346,10 +368,15 @@ predicted_img3 = predict(test_img3)
 print("Prediction complete")
 
 # display both images
-cv2.imshow(subjects[1], predicted_img1)
-cv2.imshow(subjects[2], predicted_img2)
+cv2.imshow("1", predicted_img1)
+cv2.imshow("2", predicted_img2)
+cv2.imshow("3", predicted_img3)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 cv2.waitKey(1)
 cv2.destroyAllWindows()
+
+cv2.imwrite("1.jpg", predicted_img1)
+cv2.imwrite("2.jpg", predicted_img2)
+cv2.imwrite("3.jpg", predicted_img3)
